@@ -253,13 +253,13 @@ for t in tqdm(range(3000)):
         "test": test_loss/test_size
     }, t)
 
-torch.save(net_v4, "NN_model/net_{}.model".format(TRAINING_NAME))
+torch.save(net_v4, "model/net_{}.model".format(TRAINING_NAME))
 # pickle.dump(training_history, open("log/training{}.history".format(TRAINING_NAME), mode="wb"))
 # pickle.dump(test_history, open("log/test{}.history".format(TRAINING_NAME), mode="wb"))
 
 writer.close()
 
-model_path="obj/net_{}.model".format(TRAINING_NAME)
+model_path="model/net_{}.model".format(TRAINING_NAME)
 net_v4 = torch.load(model_path).to("cpu")
 
 net_v4.to("cpu")

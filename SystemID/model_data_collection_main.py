@@ -125,4 +125,4 @@ for _ in tqdm(range(1000)):
     current_state = new_state
 
 systemid_data = np.array(systemid_data)
-# pickle.dump(systemid_data, open("data/systemid_data_100ms_19.data", mode="wb"))
+pickle.dump(systemid_data, open("data/systemid_data_100ms_19.data", mode="wb"))
