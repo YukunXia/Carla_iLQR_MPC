@@ -21,9 +21,7 @@ import time
 
 from car_env_for_MPC import *
 
-
-# TODO: conflict of np and DT
-
+import os
 
 DT = 0.1# [s] delta time step, = 1/FPS_in_server
 N_X = 5
@@ -123,10 +121,10 @@ def cost_1step(x, u, route): # x.shape:(5), u.shape(2)
     brake = np.sin(u[2])*0.5 + 0.5
     
     c_position = distance_func(x, route)
-    c_speed = (x[2]-4)**2
+    c_speed = (x[2]-8)**2 # -x[2]**2 
     c_control = (steering**2 + throttle**2 + brake**2 + throttle*brake)
 
-    return (0.04*c_position + 0*c_speed + 0.001*c_control)/TIME_STEPS_RATIO
+    return (0.04*c_position + 0.002*c_speed + 0.0005*c_control)/TIME_STEPS_RATIO
 
 @jit
 def cost_final(x, route): # x.shape:(5), u.shape(2)
@@ -335,7 +333,7 @@ def run_ilqr_false_func(input_):
     return [x_trj, u_trj, cost_trace, regu]
 
 
-TIME_STEPS = 100
+TIME_STEPS = 60
 
 # NOTE: Set dp to be the same as carla
 dp = 1 # same as waypoint interval
@@ -353,10 +351,10 @@ env = CarEnv()
 for i in range(1):
     state, waypoints = env.reset()
 
-    total_time = 0
+    # total_time = 0
 
-    for k in tqdm(range(200)):
-        start = time.time()
+    for k in tqdm(range(2000)):
+        # start = time.time()
 
         state[2] += 0.01
         state = np.array(state)
@@ -370,9 +368,9 @@ for i in range(1):
         
         x_trj, u_trj, cost_trace = run_ilqr_main(state, u_trj, waypoints)
 
-        end = time.time()
-        if k > 1:
-            total_time += end - start
+        # end = time.time()
+        # if k > 1:
+        #     total_time += end - start
         
         draw_planned_trj(env.world, onp.array(x_trj), env.location_[2], color=(0, 223, 222))
 
@@ -380,14 +378,25 @@ for i in range(1):
             steering = np.sin(u_trj[j,0])
             throttle = np.sin(u_trj[j,1])*0.5 + 0.5
             brake = np.sin(u_trj[j,2])*0.5 + 0.5
-            tqdm.write(
-                "steer_ = {0:5.2f}, throttle_ {1:5.2f}, brake_ {2:5.2f}".format(float(steering), float(throttle), float(brake))
-            )
             state, waypoints, done, _ = env.step(onp.array([steering, throttle, brake]))
 
-        tqdm.write("final estimated cost = {0:.2f} \n velocity = {1:.2f}".format(cost_trace[-1],state[2]))
-        if k > 1:
-            tqdm.write("mean MPC calc time = {}".format(total_time/(k)))
+        # tqdm.write("final estimated cost = {0:.2f} \n velocity = {1:.2f}".format(cost_trace[-1],state[2]))
+        # if k > 1:
+        #     tqdm.write("mean MPC calc time = {}".format(total_time/(k)))
 
-        if done:
-            break
+        # if done:
+        #     break
+
+pygame.quit()
+
+if VIDEO_RECORD:
+    os.system("avconv -r 50 -f image2 -i Snaps/%05d.png -y -qscale 0 -s 800x600 -aspect 4:3 Videos/result.avi")
+
+
+
+# TODO:
+# * check 0 speed issue
+# * optimize speed cost setting
+# * retrain dynamical model, perhaps with automatically collected data and boosting/weighing
+# * check uncertainty model and iLQG
+# * check Guided Policy Search

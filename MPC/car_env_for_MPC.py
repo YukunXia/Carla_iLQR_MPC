@@ -1,3 +1,28 @@
+''' 
+MIT License
+
+Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma de
+Barcelona (UAB).
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+
 from collections import deque # for waypoint recording
 
 import numpy as onp
@@ -21,6 +46,7 @@ try:
     import pygame
 except ImportError:
     raise RuntimeError('cannot import pygame, make sure pygame package is installed')
+pygame.init()
 
 # ==============================================================================
 # -- Define constants ---------------------------------------------------------
@@ -46,6 +72,8 @@ START_TIME = 3
 DEBUG = True
 
 MPC_INTERVAL = 1
+
+VIDEO_RECORD = True
 
 # ==============================================================================
 # -- Predefininition ---------------------------------------------------------
@@ -73,10 +101,10 @@ def draw_waypoints(world, waypoints, z=0.5, color=(255,0,0)): # from carla/agent
     color = carla.Color(r=color[0],g=color[1],b=color[2],a=255)
     for w in waypoints:
         t = w.transform
-        begin = t.location + carla.Location(z=z)
-        angle = math.radians(t.rotation.yaw)
-        end = begin + carla.Location(x=math.cos(angle), y=math.sin(angle))
-        world.debug.draw_arrow(begin, end, arrow_size=0.05, color=color, life_time=0.1)
+        begin = t.location + carla.Location(z)
+        # angle = math.radians(t.rotation.yaw)
+        # end = begin + carla.Location(x=math.cos(angle), y=math.sin(angle))
+        world.debug.draw_point(begin, size=0.05, color=color, life_time=0.1)
 
 def draw_planned_trj(world, x_trj, car_z, color=(255,0,0)):
     color = carla.Color(r=color[0],g=color[1],b=color[2],a=255)
@@ -189,13 +217,13 @@ class CarEnv:
         # self.nb_states = 5
         # self.nb_actions = 3
 
-        pygame.init()
         self.display = pygame.display.set_mode(
                 (800, 600),
                 pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.font = get_font()
         self.clock = pygame.time.Clock()
 
+        self.file_num = 0
         # self.waypoint_chasing_index = 0
 
     def reset(self): # reset at the beginning of each episode "current_state = env.reset()"
@@ -226,7 +254,7 @@ class CarEnv:
             self.actor_list.append(self.colsensor)
             self.colsensor.listen(lambda event: self.collision_data(event)) # what's the mechanism?
             
-            self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
+            # self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
 
             self.camera = self.world.spawn_actor(
                 self.blueprint_library.find('sensor.camera.rgb'),
@@ -235,16 +263,15 @@ class CarEnv:
             self.actor_list.append(self.camera)
             self.image_queue = queue.Queue()
             self.camera.listen(self.image_queue.put)
+            # self.heat_bar_image = pygame.Surface((150, 20))
 
             # # self.episode_start = time.time() # comment it bcs env is in sync mode
-            self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
+            # self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
 
         self.waypoint_buffer = deque(maxlen=WAYPOINT_BUFFER_LEN)
         # self.waypoint_chasing_index = 0
         self.update_waypoint_buffer(given_loc=[True, self.spawn_point.location])
 
-        # self.beta_queue = deque(maxlen=BETA_HISTORY_LEN)
-        # self.beta_queue.append(0.0)
         self.time = 0
         return self.get_state(), self.get_waypoint()
 
@@ -342,22 +369,61 @@ class CarEnv:
 
         assert steer_ >= -1 and steer_ <= 1 and throttle_ <= 1 and throttle_ >= 0 and  brake_ <= 1 and brake_ >= 0
 
+        tqdm.write(
+            "steer = {0:5.2f}, throttle {1:5.2f}, brake {2:5.2f}".format(float(steer_), float(throttle_), float(brake_))
+        )
+
         self.vehicle.apply_control(carla.VehicleControl(throttle=float(throttle_), steer=float(steer_), brake=float(brake_)))
 
         # move a step
-        for _ in range(N_DT):
+        for i in range(N_DT):
             self.clock.tick()
             self.world.tick() # needs to be tested! use time.sleep(??) to test
             self.time += DT_
             image_rgb = self.image_queue.get()
             draw_image(self.display, image_rgb)
+            # self.display.blit(
+            #     self.font.render('% 5d FPS (real)' % self.clock.get_fps(), True, (255, 255, 255)),
+            #     (8, 10))
+            # self.display.blit(
+            #     self.font.render('% 5d FPS (simulated)' % int(1/DT_), True, (255, 255, 255)),
+            #     (8, 28))
+
+            vel = self.vehicle.get_velocity()
             self.display.blit(
-                self.font.render('% 5d FPS (real)' % self.clock.get_fps(), True, (255, 255, 255)),
+                self.font.render('Velocity = {0:.2f}'.format(math.sqrt(vel.x**2 + vel.y**2)), True, (255, 255, 255)),
                 (8, 10))
-            self.display.blit(
-                self.font.render('% 5d FPS (simulated)' % int(1/DT_), True, (255, 255, 255)),
-                (8, 28))
+            
+            v_offset = 25
+            bar_h_offset = 75
+            bar_width = 100
+            for key, value in {"steering":steer_, "throttle":throttle_, "brake":brake_}.items():
+                rect_border = pygame.Rect((bar_h_offset, v_offset + 8), (bar_width, 6))
+                pygame.draw.rect(self.display, (255, 255, 255), rect_border, 1)
+                if key == "steering":
+                    rect = pygame.Rect((bar_h_offset + (1+value) * (bar_width)/2, v_offset + 8), (6, 6))
+                else:
+                    rect = pygame.Rect((bar_h_offset + value * (bar_width), v_offset + 8), (6, 6))
+                pygame.draw.rect(self.display, (255, 255, 255), rect)
+                self.display.blit(
+                self.font.render(key, True, (255, 255, 255)), (8, v_offset+3))
+
+                v_offset += 18
+
+            # heat_rect = self.heat_bar_image.get_rect()
+            # self.display.blit(self.heat_bar_image, 
+            #                     heat_rect, 
+            #                     (0, 0, heat_rect.w/100*steer_, heat_rect.h)
+            #                 )
+            
             pygame.display.flip()
+
+            if i%2 == 0 and VIDEO_RECORD and self.time >= START_TIME:
+                # Save every frame
+                filename = "Snaps/%05d.png" % self.file_num
+                pygame.image.save(self.display, filename)
+                self.file_num += 1
+            
 
         # do we need to wait for tick (10) first?
         # no! wait_for_tick() + world.on_tick works for async mode
@@ -367,9 +433,9 @@ class CarEnv:
         if DEBUG:
             past_WP = list(itertools.islice(self.waypoint_buffer, 0, self.min_distance_index))
             future_WP = list(itertools.islice(self.waypoint_buffer, self.min_distance_index+1, WAYPOINT_BUFFER_LEN-1))
-            draw_waypoints(self.world, future_WP, z=self.location.z+0.5, color=(255,0,0))
-            draw_waypoints(self.world, past_WP, z=self.location.z+0.5, color=(0,255,0))
-            draw_waypoints(self.world, [self.waypoint_buffer[self.min_distance_index]], z=self.location.z+0.5, color=(0,0,255))
+            draw_waypoints(self.world, future_WP, z=0.5, color=(255,0,0))
+            draw_waypoints(self.world, past_WP, z=0.5, color=(0,255,0))
+            draw_waypoints(self.world, [self.waypoint_buffer[self.min_distance_index]], z=0.5, color=(0,0,255))
             # draw_waypoints(self.world, self.waypoint_buffer)
 
         if len(self.collision_hist) != 0:
