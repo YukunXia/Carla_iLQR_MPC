@@ -21,6 +21,7 @@ Table of contents
        * [2.2.3 First Task: Pure Pursuit](#first-task-pure-pursuit)
        * [2.2.4 Advanced Task: Route Following](#Advanced-Task-Route-Following)
      * [2.3 MPC](#MPC)
+   * [3. To Do List](#to-do-list)
 <!--te-->
 
 ## Video-Demonstration
@@ -99,6 +100,8 @@ The iLQR algorithm is strongly dependent on the speed of rolling out the dynamic
     |---------|-------------------|-------------------|
     | Pytorch | 241 µs ± 11.3 µs  | **1.21 ms** ± 45 µs   |
     | Jax     | 74.1 µs ± 2.33 µs | 71.3 µs ± 1.55 µs |
+    
+*Test Platform: i7-7700HQ*
 
 By comparison, it's clear to see Pydrake performs best at calculating Jacobian, but is not that compatible with NN inference. Pytorch is slow to calculate Jacobian when model is only partially described by NN. For Jax, all the operations has the similar time consumption. That could come from the Python-XLA overheads, and later iLQR-MPC testing shows that increasing the iteration number to several times larger will not affect the overall speed.
 
@@ -168,4 +171,16 @@ The design for cost function is that
 
 ### MPC
 
-Run the route following iLQR program iteratively at 10Hz is the MPC in the video demonstrated in the first section.
+Run the route following iLQR program iteratively at 10Hz is the MPC in the video demonstrated in the first section. However, the running frequency could be higher than 1000Hz, since the average time per run is about 500-700us, when time step for prediction = 60, iteration per run = 300. Besides, the performance almost has no change when the iteration per run increases from 50 to 300.
+
+*Test Platform: i7-7700HQ*
+
+## To-Do-List
+
+- Automatic data collection for system identification, with uncertainty considered
+- Collect data directly from IMU, rather than calling Carla API
+- Model considers the slope of the terrian, or dynamically provides terrian information
+- Implement iLQG
+- Implement Box-DDP
+- Consider the constraints from obstacles
+- Adaptively change the cost function
