@@ -26,7 +26,7 @@ Table of contents
 
 ## Video-Demonstration
 
-[![Watch the video](https://img.youtube.com/vi/She_BLBmVaE/0.jpg)](https://youtu.be/She_BLBmVaE)
+[![Watch the video](https://img.youtube.com/vi/AEuxxsT1zcI/0.jpg)](https://www.youtube.com/watch?v=AEuxxsT1zcI)
 
 ## Implementation-Details
 
