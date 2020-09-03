@@ -390,7 +390,8 @@ for i in range(1):
 pygame.quit()
 
 if VIDEO_RECORD:
-    os.system("avconv -r 50 -f image2 -i Snaps/%05d.png -y -qscale 0 -s 800x600 -aspect 4:3 Videos/result.avi")
+    os.system("ffmpeg -r 50 -f image2 -i Snaps/%05d.png -s {}x{} -aspect 16:9 -vcodec libx264 -crf 25 -y Videos/result.avi".
+                format(RES_X, RES_Y))
 
 
 

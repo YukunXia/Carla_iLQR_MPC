@@ -74,6 +74,8 @@ DEBUG = True
 MPC_INTERVAL = 1
 
 VIDEO_RECORD = True
+RES_X = 1920
+RES_Y = 1080
 
 # ==============================================================================
 # -- Predefininition ---------------------------------------------------------
@@ -218,7 +220,7 @@ class CarEnv:
         # self.nb_actions = 3
 
         self.display = pygame.display.set_mode(
-                (800, 600),
+                (RES_X, RES_Y),
                 pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.font = get_font()
         self.clock = pygame.time.Clock()
@@ -256,10 +258,15 @@ class CarEnv:
             
             # self.vehicle.apply_control(carla.VehicleControl(throttle=0.0, brake=0.0))
 
+            blueprint = self.world.get_blueprint_library().find('sensor.camera.rgb')
+            blueprint.set_attribute('image_size_x', '{}'.format(RES_X))
+            blueprint.set_attribute('image_size_y', '{}'.format(RES_Y))
+            # blueprint.set_attribute('fov', '110')
             self.camera = self.world.spawn_actor(
-                self.blueprint_library.find('sensor.camera.rgb'),
+                blueprint,
                 carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
                 attach_to=self.vehicle)
+            self.camera.image_size_x = 1920
             self.actor_list.append(self.camera)
             self.image_queue = queue.Queue()
             self.camera.listen(self.image_queue.put)
@@ -391,7 +398,7 @@ class CarEnv:
 
             vel = self.vehicle.get_velocity()
             self.display.blit(
-                self.font.render('Velocity = {0:.2f}'.format(math.sqrt(vel.x**2 + vel.y**2)), True, (255, 255, 255)),
+                self.font.render('Velocity = {0:.2f} m/s'.format(math.sqrt(vel.x**2 + vel.y**2)), True, (255, 255, 255)),
                 (8, 10))
             
             v_offset = 25
